@@ -2,23 +2,64 @@ import SwiftUI
 
 struct FoodCard: View {
     let item: FoodRecommendationItem
+    @State private var isLoading: Bool = false
+    @State private var imageURL: URL?
+    @State private var errorMessage: String?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .topTrailing) {
                 // Placeholder image
                 ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.blue.opacity(0.12))
-                    Image(systemName: "fork.knife")
-                        .font(.system(size: 36))
-                        .foregroundStyle(.teal)
+                    
+                    Group {
+                        if isLoading {
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.blue.opacity(0.12))
+                            Image(systemName: "fork.knife")
+                                .font(.system(size: 36))
+                                .foregroundStyle(.teal)
+                            //                            ProgressView()
+                            //                                .progressViewStyle(.circular)
+                            //                                .scaleEffect(1.5)
+                        } else if let imageURL {
+                            AsyncImage(url: imageURL) { phase in
+                                switch phase {
+                                case .empty:
+                                    ProgressView()
+                                        .progressViewStyle(.circular)
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(maxWidth: 350)
+                                        .cornerRadius(8)
+                                        .shadow(radius: 4)
+                                case .failure:
+                                    Text("Failed to load image.")
+                                        .foregroundColor(.red)
+                                @unknown default:
+                                    EmptyView()
+                                }
+                            }
+                        } else if let errorMessage {
+                            Text(errorMessage)
+                                .foregroundColor(.red)
+                                .multilineTextAlignment(.center)
+                                .padding()
+                        } else {
+                            Text("No results found.")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    
                 }
                 .frame(height: 120)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 
-//                SafetyBadge(status: safety)
-//                    .padding(8)
+                //                SafetyBadge(status: safety)
+                //                    .padding(8)
             }
             
             VStack(alignment: .leading, spacing: 6) {
@@ -52,6 +93,31 @@ struct FoodCard: View {
             Button("Save") {}.tint(.teal)
             Button("Not for me") {}.tint(.gray)
         }
+        
+        .onAppear {
+            Task {
+                await load()
+            }
+        }
     }
+    
+    
+    
+    @MainActor
+    private func load() async {
+        isLoading = true
+        errorMessage = nil
+        imageURL = nil
+        do {
+            let url = try await UnsplashService.shared.searchFirstPhoto(query: item.name)
+            imageURL = url
+            print("query = \(item.name)")
+            print("image url from unsplash \(imageURL)")
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+    
 }
 
