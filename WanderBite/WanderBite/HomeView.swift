@@ -42,17 +42,6 @@ struct HomeView: View {
             Text("Find Food for Your Trip")
                 .font(.title3.bold())
             Spacer()
-            Button(action: {}) {
-                Image(systemName: "map")
-                    .font(.title3)
-            }
-            .accessibilityLabel("Open map")
-            
-            Button(action: {}) {
-                Image(systemName: "person.crop.circle")
-                    .font(.title3)
-            }
-            .accessibilityLabel("User profile")
         }
         .padding(.top)
     }
