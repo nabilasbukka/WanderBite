@@ -365,6 +365,7 @@ final class HomeViewModel: ObservableObject {
    """
     var languageModelSession: LanguageModelSession?
     @Published private(set) var aiRecommendations: [FoodRecommendationItem] = []
+    @Published var isLoadingRecommendations: Bool = false
 
     private var cancellables: Set<AnyCancellable> = []
 
@@ -434,7 +435,7 @@ final class HomeViewModel: ObservableObject {
         let dietPrefs = preferences.dietaryPreferences.map(\.rawValue).sorted().joined(separator: ", ")
         let allergies = preferences.allergies.map(\.rawValue).sorted().joined(separator: ", ")
         let religious = preferences.religiousRules.map(\.rawValue).sorted().joined(separator: ", ")
-        let avoidNutrients = preferences.nutrientsToAvoid.map(\.rawValue).sorted().joined(separator: ", ")
+        let candidates = candidateContext()
         
         //let candidates = candidateContext()
         
@@ -447,7 +448,6 @@ final class HomeViewModel: ObservableObject {
                 • Dietary: [\(dietPrefs)]
                 • Allergies: [\(allergies)]
                 • Religious rules: [\(religious)]
-                • Nutrients to avoid: [\(avoidNutrients)]
               - Strict safe only: \(onlyStrictSafe ? "YES" : "NO")
               
               Produce only the JSON array of FoodRecommendationItem.
@@ -460,7 +460,8 @@ final class HomeViewModel: ObservableObject {
     @MainActor
     func generateFoodRecommendation(limit: Int = 5, city: String) async {
         guard let languageModelSession else { return }
-
+        isLoadingRecommendations = true
+        defer { isLoadingRecommendations = false }
         do {
             let prompt = buildRecommendationPrompt(limit: limit, city: city)
             let result = try await languageModelSession.respond(to: prompt, generating: [FoodRecommendationItem].self)
