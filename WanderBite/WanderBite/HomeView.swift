@@ -119,60 +119,61 @@ struct HomeView: View {
     }
     
     private var suggestionsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) { // <- leading alignment
             Text("Top Picks for You")
                 .font(.headline)
-            ScrollView(.horizontal, showsIndicators: false) {
-                VStack(spacing: 12) {
-                    ForEach(vm.aiRecommendations, id: \.id) { rec in
-//                        let item = rec.item
-//                        let safety = vm.safetyStatus(for: item)
-                        NavigationLink {
-                            FoodDetailView(item: rec)
-                        } label: {
-                            FoodCard(item: rec)
-                                .frame(width: 260)
-                        }
-                        .buttonStyle(.plain)
+                .multilineTextAlignment(.leading) // <- align text left
+            
+            VStack(spacing: 12) {
+                ForEach(vm.aiRecommendations, id: \.id) { rec in
+                    NavigationLink {
+                        FoodDetailView(item: rec)
+                    } label: {
+                        FoodCard(item: rec)
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
     
     /*
-    private var foodListSection: some View {
-        Group {
-            if vm.filteredItems.isEmpty {
-                VStack(spacing: 12) {
-                    Text("No safe meals found nearby.")
-                        .font(.headline)
-                    Button("Relax Filters") {
-                        vm.selectedDietaryFilters.removeAll()
-                        vm.onlyStrictSafe = false
-                        vm.searchText = ""
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.teal)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(RoundedRectangle(cornerRadius: 20).fill(Color(.secondarySystemBackground)))
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 12)], spacing: 12) {
-                    ForEach(vm.filteredItems) { item in
-                        let safety = vm.safetyStatus(for: item)
-                        NavigationLink {
-                            FoodDetailView(item: item, safety: safety)
-                        } label: {
-                            FoodCard(item: item, safety: safety, reasonText: vm.reasonText(for: item))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-    }*/
+     private var foodListSection: some View {
+     Group {
+     if vm.filteredItems.isEmpty {
+     VStack(spacing: 12) {
+     Text("No safe meals found nearby.")
+     .font(.headline)
+     Button("Relax Filters") {
+     vm.selectedDietaryFilters.removeAll()
+     vm.onlyStrictSafe = false
+     vm.searchText = ""
+     }
+     .buttonStyle(.borderedProminent)
+     .tint(.teal)
+     }
+     .frame(maxWidth: .infinity)
+     .padding()
+     .background(RoundedRectangle(cornerRadius: 20).fill(Color(.secondarySystemBackground)))
+     } else {
+     LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 12, alignment: .center)], alignment: .center, spacing: 12) {
+     ForEach(vm.filteredItems) { item in
+     let safety = vm.safetyStatus(for: item)
+     NavigationLink {
+     FoodDetailView(item: item, safety: safety)
+     } label: {
+     FoodCard(item: item, safety: safety, reasonText: vm.reasonText(for: item))
+     .frame(maxWidth: .infinity, alignment: .center)
+     }
+     .buttonStyle(.plain)
+     }
+     }
+     }
+     }
+     }*/
 }
 
 #Preview {
