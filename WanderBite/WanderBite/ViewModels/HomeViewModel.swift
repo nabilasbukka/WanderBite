@@ -24,18 +24,42 @@ final class HomeViewModel: ObservableObject {
     
     // FoundationModels
     private let instructions: String = """
-              You are an assistant that composes food recommendations strictly from the provided candidate list.
-              Output MUST be a JSON array of FoodRecommendationItem (Generable schema).
-              Do not invent restaurants or items not present in the candidates. Prefer STRICT_SAFE then SAFE.
-              Constraints:
+              You are an assistant that selects suitable food options strictly from a provided candidate list.
+              Your goal is to identify choices that align with the user's HEALTH profile and current LOCATION constraints.
+   
+              OUTPUT FORMAT
+              - Output MUST be a JSON array of FoodRecommendationItem (Generable schema).
+              - No extra commentary, no markdown, no explanations—ONLY the JSON array.
+   
+              CANDIDATE POLICY
+              - Do NOT invent restaurants or items not present in the candidates.
+              - Prioritize items with safety status STRICT_SAFE, then SAFE.
+              - Exclude anything marked uncertain when strict mode is ON.
+   
+              HEALTH & SAFETY RULES
+              - Exclude any item that violates allergies, religious rules, or hard dietary restrictions.
+              - Give preference to items matching dietary preferences and avoiding listed nutrients (e.g., low-sodium, no added sugar).
+              - Never override or relax allergy or religion-related constraints.
+   
+              LOCATION RULES
+              - Only include items whose candidate distance_m is ≤ the user's maximum distance (in meters).
+              - Copy distanceMeters from candidate distance_m exactly.
+   
+              FIELD CONSTRAINTS (Generable)
+              - name: short, human-readable, 2–60 chars.
+              - locationName: short, human-readable.
               - rating: copy from candidate (0.0–5.0).
               - distanceMeters: copy candidate distance_m (meters).
-              - name/locationName: short, human-readable; name 2–60 chars.
-              - matchMessage: one concise sentence (≤140 chars), no emojis.
-              - tags: up to 5 concise tags; prefer existing candidate tags; add at most 1 missing if essential.
-              - Respect: allergies, religious rules, dietary preferences, and nutrients-to-avoid. If STRICT mode on, exclude anything uncertain.
+              - matchMessage: ONE concise sentence (≤140 chars), no emojis. Mention the key health or location reason when relevant.
+              - tags: up to 5 concise tags; prefer existing candidate tags; add at most one new tag if essential.
+   
+              SELECTION & ORDERING
               - Return at most 5 items.
-              - No extra commentary; only the JSON array for the schema.
+              - Order by: (1) compliance with strict mode & health constraints, (2) higher rating, (3) nearer distance.
+   
+              VALIDATION
+              - If no candidate satisfies strict mode, return an empty array.
+              - Ensure every returned item is present in candidates and follows all constraints.
    """
     var languageModelSession: LanguageModelSession?
     @Published private(set) var aiRecommendations: [FoodRecommendationItem] = []
@@ -87,7 +111,7 @@ final class HomeViewModel: ObservableObject {
         return lines.joined(separator: "\n")
     }
     /// Creates a focused prompt that asks ONLY for the Generable schema.
-    private func buildRecommendationPrompt(limit: Int = 5) -> Prompt {
+    private func buildRecommendationPrompt(limit: Int = 5, city: String) -> Prompt {
         let dietarySelected = selectedDietaryFilters.map(\.rawValue).sorted().joined(separator: ", ")
         let dietPrefs = preferences.dietaryPreferences.map(\.rawValue).sorted().joined(separator: ", ")
         let allergies = preferences.allergies.map(\.rawValue).sorted().joined(separator: ", ")
@@ -114,18 +138,20 @@ final class HomeViewModel: ObservableObject {
               \(candidates)
               
               Produce only the JSON array of FoodRecommendationItem.
+              
+              LOCATION: \(city)
               """
         }
     }
     
     /// Generates AI-grounded recommendations and publishes them to `aiRecommendations`.
     @MainActor
-    func generateFoodRecommendation(limit: Int = 5) async {
+    func generateFoodRecommendation(limit: Int = 5, city: String) async {
         guard let languageModelSession else { return }
         
         
         do {
-            let prompt = buildRecommendationPrompt(limit: limit)
+            let prompt = buildRecommendationPrompt(limit: limit, city: city)
             print(prompt)
             let result = try await languageModelSession.respond(to: prompt, generating: [FoodRecommendationItem].self)
             

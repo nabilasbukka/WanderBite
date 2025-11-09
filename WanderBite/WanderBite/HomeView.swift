@@ -31,7 +31,7 @@ struct HomeView: View {
             .navigationBarHidden(true)
             .onAppear {
                 Task {
-                    await vm.generateFoodRecommendation()
+                    await vm.generateFoodRecommendation(city: "Batam")
                 }
             }
         }
