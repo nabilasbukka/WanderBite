@@ -11,20 +11,23 @@ import Observation
 
 struct OnboardingFlowView: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+
     @State private var haptic = UIImpactFeedbackGenerator(style: .soft)
-    @State var vm = OnboardingViewModel()
+    @State var vm: OnboardingViewModel
+
+    init(seed: UserPreferences? = nil) {
+        _vm = State(initialValue: OnboardingViewModel(seed: seed))
+    }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 CuteBackground()
-
                 VStack(spacing: 18) {
                     header
-
                     ZStack {
                         Cute.glass(RoundedRectangle(cornerRadius: 24, style: .continuous))
-
                         TabView(selection: $vm.step) {
                             OnboardingAllergiesView(vm: vm).tag(OnboardingStep.allergens)
                             OnboardingDietView(vm: vm).tag(OnboardingStep.diet)
@@ -48,7 +51,6 @@ struct OnboardingFlowView: View {
                 Text("Let’s eat healthy")
                     .font(.system(size: 34, weight: .bold))
                     .foregroundStyle(Cute.accent)
-                    .shadow(radius: 0)
             }
             Text(subtitle(for: vm.step))
                 .font(.subheadline)
@@ -68,7 +70,7 @@ struct OnboardingFlowView: View {
         case .culture:   return "Respect your rules & beliefs."
         }
     }
-    
+
     private var bottomBar: some View {
         HStack(spacing: 12) {
             Button {
@@ -87,7 +89,12 @@ struct OnboardingFlowView: View {
             if vm.step == .culture {
                 Button {
                     haptic.impactOccurred()
-                    do { try vm.save(context: context) } catch { print("Save error:", error) }
+                    do {
+                        try vm.save(context: context)
+                        dismiss()
+                    } catch {
+                        print("Save error:", error)
+                    }
                 } label: { Text("Finish") }
                 .buttonStyle(PrimaryCapsuleButtonStyle())
                 .disabled(!vm.canGoNext)

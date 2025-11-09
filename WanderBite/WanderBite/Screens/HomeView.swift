@@ -1,9 +1,20 @@
 import SwiftUI
 
 struct HomeView: View {
-    @StateObject private var vm = HomeViewModel()
+    @StateObject private var vm: HomeViewModel
     @StateObject private var locViewModel = CityLocationViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.modelContext) private var context
+    
+    @State private var showEdit = false
+    
+    init(prefs: UserPreferences) {
+        _vm = StateObject(wrappedValue: HomeViewModel(prefs: prefs))
+    }
+    
+    init(vm: HomeViewModel) {
+        _vm = StateObject(wrappedValue: vm)
+    }
     
     private var activePreferenceChips: [String] {
         var chips: [String] = []
@@ -70,7 +81,9 @@ struct HomeView: View {
                 }
             }
             
-            Button(action: {}) {
+            Button {
+                showEdit = true
+            } label: {
                 Label("Edit Preferences", systemImage: "slider.horizontal.3")
             }
             .buttonStyle(.bordered)
@@ -82,6 +95,15 @@ struct HomeView: View {
             RoundedRectangle(cornerRadius: 24)
                 .fill(colorScheme == .dark ? Color.teal.opacity(0.15) : Color.teal.opacity(0.1))
         )
+        .sheet(isPresented: $showEdit, onDismiss: {
+            withAnimation(.snappy) {
+                vm.reloadFromStore(using: context)
+            }
+            Task { await vm.generateFoodRecommendation(city: locViewModel.city) }
+        }) {
+            OnboardingFlowView(seed: vm.preferencesModel)
+                .presentationDetents([.large])
+        }
     }
     
     private var filterBar: some View {
@@ -193,6 +215,3 @@ struct HomeView: View {
     }
 }
 
-#Preview {
-    HomeView()
-}

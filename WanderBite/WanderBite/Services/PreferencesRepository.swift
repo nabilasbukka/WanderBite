@@ -1,19 +1,39 @@
 import Foundation
+import SwiftData
 
+@MainActor
 protocol PreferencesRepositoryProtocol {
     func loadPreferences() -> UserPreferences
 }
 
-struct PreferencesRepository: PreferencesRepositoryProtocol {
+
+@MainActor
+final class PreferencesRepository: PreferencesRepositoryProtocol {
+    private let context: ModelContext
+
+    init(context: ModelContext) {
+        self.context = context
+    }
+
     func loadPreferences() -> UserPreferences {
-        // Dummy in-memory preferences from onboarding
-        UserPreferences(
-            name: "Afina",
-            city: "Jakarta",
-            allergies: [.eggs],
-            dietaryPreferences: [.glutenFree],
-            religiousRules: [.halal],
-            nutrientsToAvoid: [.sugar]
+        let descriptor = FetchDescriptor<UserPreferences>(
+            sortBy: [SortDescriptor(\.createdAt, order: .forward)]
         )
+
+        if let existing = (try? context.fetch(descriptor))?.first {
+            return existing
+        } else {
+            let fresh = UserPreferences(
+                name: "",
+                city: "",
+                allergies: [],
+                dietaryPreferences: [],
+                religiousRules: [],
+                isOnboarded: false
+            )
+            context.insert(fresh)
+            try? context.save()
+            return fresh
+        }
     }
 }
