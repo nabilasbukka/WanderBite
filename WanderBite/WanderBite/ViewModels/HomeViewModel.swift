@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import FoundationModels
 
 final class HomeViewModel: ObservableObject {
     // Inputs
@@ -14,11 +15,31 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var allItems: [FoodItem] = []
     @Published private(set) var filteredItems: [FoodItem] = []
     @Published private(set) var recommendations: [Recommendation] = []
-
+    
     private let prefsRepo: PreferencesRepositoryProtocol
     private let foodRepo: FoodRepositoryProtocol
     private var cancellables: Set<AnyCancellable> = []
     private let recommender: RecommendationServiceProtocol = FMRecommendationService()
+    
+    
+    // FoundationModels
+    private let instructions: String = """
+              You are an assistant that composes food recommendations strictly from the provided candidate list.
+              Output MUST be a JSON array of FoodRecommendationItem (Generable schema).
+              Do not invent restaurants or items not present in the candidates. Prefer STRICT_SAFE then SAFE.
+              Constraints:
+              - rating: copy from candidate (0.0–5.0).
+              - distanceMeters: copy candidate distance_m (meters).
+              - name/locationName: short, human-readable; name 2–60 chars.
+              - matchMessage: one concise sentence (≤140 chars), no emojis.
+              - tags: up to 5 concise tags; prefer existing candidate tags; add at most 1 missing if essential.
+              - Respect: allergies, religious rules, dietary preferences, and nutrients-to-avoid. If STRICT mode on, exclude anything uncertain.
+              - Return at most 5 items.
+              - No extra commentary; only the JSON array for the schema.
+   """
+    var languageModelSession: LanguageModelSession?
+    @Published private(set) var aiRecommendations: [FoodRecommendationItem] = []
+    
     
     init(
         prefsRepo: PreferencesRepositoryProtocol = PreferencesRepository(),
@@ -31,6 +52,92 @@ final class HomeViewModel: ObservableObject {
         self.selectedDietaryFilters = preferences.dietaryPreferences
         bind()
         applyFilters()
+        
+        setupLanguageModel()
+    }
+    func setupLanguageModel(){
+        languageModelSession = LanguageModelSession(instructions: instructions)
+        print("Language model setup complete.")
+    }
+    
+    /// Builds a compact, LLM-friendly text table of candidate items.
+    private func candidateContext(limit: Int = 20) -> String {
+        let source = filteredItems.isEmpty ? allItems : filteredItems
+        let items = Array(source.prefix(limit))
+        
+        // Keep it terse; the model just needs grounding facts.
+        let lines = items.map { item -> String in
+            let status = safetyStatus(for: item)
+            let reason = reasonText(for: item)
+            let tagsLine = item.tags.map { "\($0)" }.joined(separator: ", ")
+            // Distances are in KM in your repo — convert so the model can copy meters directly.
+            let meters = Int((item.distanceKm * 1000).rounded())
+            return [
+                "name=\(item.name)",
+                "restaurant=\(item.restaurant)",
+                "cuisine=\(item.cuisine.rawValue)",
+                "rating=\(String(format: "%.1f", item.rating))",
+                "distance_m=\(meters)",
+                "safety=\(status)",
+                "tags=[\(tagsLine)]",
+                "reason=\(reason)"
+            ].joined(separator: " | ")
+        }
+        
+        return lines.joined(separator: "\n")
+    }
+    /// Creates a focused prompt that asks ONLY for the Generable schema.
+    private func buildRecommendationPrompt(limit: Int = 5) -> Prompt {
+        let dietarySelected = selectedDietaryFilters.map(\.rawValue).sorted().joined(separator: ", ")
+        let dietPrefs = preferences.dietaryPreferences.map(\.rawValue).sorted().joined(separator: ", ")
+        let allergies = preferences.allergies.map(\.rawValue).sorted().joined(separator: ", ")
+        let religious = preferences.religiousRules.map(\.rawValue).sorted().joined(separator: ", ")
+        let avoidNutrients = preferences.nutrientsToAvoid.map(\.rawValue).sorted().joined(separator: ", ")
+        
+        let candidates = candidateContext()
+        
+        return Prompt {
+              """
+              USER CONTEXT
+              - Search text: "\(searchText)"
+              - Selected cuisine: \(selectedCuisine.rawValue)
+              - Max distance (km): \(String(format: "%.1f", maxDistanceKm))
+              - Dietary filter chips (selected): [\(dietarySelected)]
+              - Preferences:
+                • Dietary: [\(dietPrefs)]
+                • Allergies: [\(allergies)]
+                • Religious rules: [\(religious)]
+                • Nutrients to avoid: [\(avoidNutrients)]
+              - Strict safe only: \(onlyStrictSafe ? "YES" : "NO")
+              
+              CANDIDATES (do not invent beyond these)
+              \(candidates)
+              
+              Produce only the JSON array of FoodRecommendationItem.
+              """
+        }
+    }
+    
+    /// Generates AI-grounded recommendations and publishes them to `aiRecommendations`.
+    @MainActor
+    func generateFoodRecommendation(limit: Int = 5) async {
+        guard let languageModelSession else { return }
+        
+        
+        do {
+            let prompt = buildRecommendationPrompt(limit: limit)
+            print(prompt)
+            let result = try await languageModelSession.respond(to: prompt, generating: [FoodRecommendationItem].self)
+            
+            // Normalize + publish
+            let items = result.content.map { $0.normalized() }
+            self.aiRecommendations = items
+            print("AI recommendations (\(items.count)):", items)
+        } catch {
+            // Non-fatal logging; keep the app responsive.
+            print("generateFoodRecommendation error:", error.localizedDescription)
+            self.aiRecommendations = []
+        }
     }
     
     private func bind() {
@@ -122,4 +229,36 @@ final class HomeViewModel: ObservableObject {
         self.recommendations = recs
     }
     
+}
+
+
+extension FoodRecommendationItem {
+    /// Safety net: clean tags and clamp ranges.
+    func normalized() -> FoodRecommendationItem {
+        let cleanedTags = tags
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .map { $0.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression) }
+            .filter { !$0.isEmpty }
+            .uniqued()
+            .prefix(5)
+        
+        let clampedRating = max(0.0, min(5.0, rating))
+        let clampedDistance = max(0.0, min(50_000.0, distanceMeters)) // meters
+        
+        return FoodRecommendationItem(
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            locationName: locationName.trimmingCharacters(in: .whitespacesAndNewlines),
+            rating: clampedRating,
+            distanceMeters: clampedDistance,
+            matchMessage: matchMessage.trimmingCharacters(in: .whitespacesAndNewlines),
+            tags: Array(cleanedTags)
+        )
+    }
+}
+
+private extension Sequence where Element: Hashable {
+    func uniqued() -> [Element] {
+        var seen = Set<Element>()
+        return filter { seen.insert($0).inserted }
+    }
 }

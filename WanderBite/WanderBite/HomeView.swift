@@ -29,6 +29,11 @@ struct HomeView: View {
             .background(Color(.systemBackground))
             .navigationTitle("")
             .navigationBarHidden(true)
+            .onAppear {
+                Task {
+                    await vm.generateFoodRecommendation()
+                }
+            }
         }
     }
     
