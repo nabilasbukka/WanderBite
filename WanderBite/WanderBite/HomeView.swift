@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @StateObject private var vm = HomeViewModel()
+    @StateObject private var locViewModel = CityLocationViewModel()
     @Environment(\.colorScheme) private var colorScheme
     
     private var activePreferenceChips: [String] {
@@ -53,7 +54,7 @@ struct HomeView: View {
     
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Hi, Traveler 👋 – Safe picks near you in \(vm.preferences.city)")
+            Text("Hi, Traveler 👋 – Safe picks near you in \(locViewModel.city)")
                 .font(.headline)
             
             ScrollView(.horizontal, showsIndicators: false) {
