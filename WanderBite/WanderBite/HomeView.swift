@@ -107,14 +107,6 @@ struct HomeView: View {
                 }
             }
             
-            // Distance
-            VStack(alignment: .leading) {
-                Text("Distance: \(vm.maxDistanceKm, specifier: "%.1f") km")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Slider(value: $vm.maxDistanceKm, in: 0.5...5.0, step: 0.5)
-            }
-            
             // Dietary filters chips
             VStack(alignment: .leading, spacing: 6) {
                 Text("Dietary filters")
@@ -142,15 +134,14 @@ struct HomeView: View {
             Text("Top Picks for You")
                 .font(.headline)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                VStack(spacing: 12) {
                     ForEach(vm.aiRecommendations, id: \.id) { rec in
 //                        let item = rec.item
 //                        let safety = vm.safetyStatus(for: item)
                         NavigationLink {
                             FoodDetailView(item: rec)
                         } label: {
-                            Text(rec.name)
-                            //FoodCard(item: item, safety: safety, reasonText: rec.reason)
+                            FoodCard(item: rec)
                                 .frame(width: 260)
                         }
                         .buttonStyle(.plain)

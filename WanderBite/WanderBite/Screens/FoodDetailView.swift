@@ -38,23 +38,12 @@ struct FoodDetailView: View {
     }
 }
 
-//#Preview {
-//    NavigationStack {
-//        FoodDetailView(
-//            item: FoodItem(
-//                name: "Test Dish",
-//                restaurant: "Test Place",
-//                cuisine: .local,
-//                distanceKm: 1.0,
-//                rating: 4.5,
-//                tags: [.glutenFree],
-//                allergens: [],
-//                religiousCompliance: [.halal],
-//                nutrients: [],
-//                description: "",
-//                imageName: nil
-//            ),
-//            safety: .safe
-//        )
-//    }
-//}
+#Preview {
+    NavigationStack {
+        FoodDetailView(
+            item: FoodRecommendationItem(name: "Miso Soup", matchMessage: "Good for you", tags: ["vegan", "halal"])
+            
+            
+        )
+    }
+}
