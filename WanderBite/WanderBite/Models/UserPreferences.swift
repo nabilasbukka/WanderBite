@@ -9,7 +9,7 @@ struct UserPreferences: Codable {
     var nutrientsToAvoid: Set<Nutrient>
     
     static let sample = UserPreferences(
-        name: "Traveler",
+        name: "Afina",
         city: "Singapore",
         allergies: [.eggs],
         dietaryPreferences: [.glutenFree],

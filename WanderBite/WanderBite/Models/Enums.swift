@@ -24,7 +24,7 @@ enum Allergen: String, CaseIterable, Codable, Identifiable {
 
 enum ReligiousRule: String, CaseIterable, Codable, Identifiable {
     case halal = "Halal"
-    case kosher = "Kosher"
+    case kosher = "Non-Halal"
     var id: String { rawValue }
 }
 

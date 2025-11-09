@@ -8,10 +8,10 @@ struct PreferencesRepository: PreferencesRepositoryProtocol {
     func loadPreferences() -> UserPreferences {
         // Dummy in-memory preferences from onboarding
         UserPreferences(
-            name: "Traveler",
+            name: "Afina",
             city: "Jakarta",
-            allergies: [.peanuts],
-            dietaryPreferences: [.glutenFree, .pescatarian],
+            allergies: [.eggs],
+            dietaryPreferences: [.glutenFree],
             religiousRules: [.halal],
             nutrientsToAvoid: [.sugar]
         )

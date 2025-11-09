@@ -19,7 +19,6 @@ final class HomeViewModel: ObservableObject {
     private let foodRepo: FoodRepositoryProtocol
     private var cancellables: Set<AnyCancellable> = []
     private let recommender: RecommendationServiceProtocol = FMRecommendationService()
-    private let locationService = LocationService()
     
     init(
         prefsRepo: PreferencesRepositoryProtocol = PreferencesRepository(),
@@ -31,8 +30,6 @@ final class HomeViewModel: ObservableObject {
         self.allItems = foodRepo.loadFoodItems()
         self.selectedDietaryFilters = preferences.dietaryPreferences
         bind()
-        observeLocation()
-        locationService.start()
         applyFilters()
     }
     
@@ -125,13 +122,4 @@ final class HomeViewModel: ObservableObject {
         self.recommendations = recs
     }
     
-    private func observeLocation() {
-        locationService.$city
-            .compactMap { $0 }
-            .sink { [weak self] foundCity in
-                guard let self = self else { return }
-                self.preferences = self.preferences.withCity(foundCity)
-            }
-            .store(in: &cancellables)
-    }
 }
