@@ -6,12 +6,14 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct WanderBiteApp: App {
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            RootView()
         }
+        .modelContainer(for: UserPreferences.self)
     }
 }
