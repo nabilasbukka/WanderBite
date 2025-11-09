@@ -21,7 +21,7 @@ struct HomeView: View {
                     heroSection
                     filterBar
                     suggestionsSection
-                    foodListSection
+                    //foodListSection
                 }
                 .padding(.horizontal)
                 .padding(.bottom)
@@ -31,7 +31,7 @@ struct HomeView: View {
             .navigationBarHidden(true)
             .onAppear {
                 Task {
-                    await vm.generateFoodRecommendation(city: "Batam")
+                    await vm.generateFoodRecommendation(city: "Osaka")
                 }
             }
         }
@@ -143,13 +143,14 @@ struct HomeView: View {
                 .font(.headline)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(vm.recommendations) { rec in
-                        let item = rec.item
-                        let safety = vm.safetyStatus(for: item)
+                    ForEach(vm.aiRecommendations, id: \.id) { rec in
+//                        let item = rec.item
+//                        let safety = vm.safetyStatus(for: item)
                         NavigationLink {
-                            FoodDetailView(item: item, safety: safety)
+                            FoodDetailView(item: rec)
                         } label: {
-                            FoodCard(item: item, safety: safety, reasonText: rec.reason)
+                            Text(rec.name)
+                            //FoodCard(item: item, safety: safety, reasonText: rec.reason)
                                 .frame(width: 260)
                         }
                         .buttonStyle(.plain)
@@ -159,6 +160,7 @@ struct HomeView: View {
         }
     }
     
+    /*
     private var foodListSection: some View {
         Group {
             if vm.filteredItems.isEmpty {
@@ -190,7 +192,7 @@ struct HomeView: View {
                 }
             }
         }
-    }
+    }*/
 }
 
 #Preview {

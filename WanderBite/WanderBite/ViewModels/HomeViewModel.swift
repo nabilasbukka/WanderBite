@@ -24,42 +24,30 @@ final class HomeViewModel: ObservableObject {
     
     // FoundationModels
     private let instructions: String = """
-              You are an assistant that selects suitable food options strictly from a provided candidate list.
-              Your goal is to identify choices that align with the user's HEALTH profile and current LOCATION constraints.
+   
+            You are an assistant that generates a list of suitable food based on the user’s dietary preferences, restrictions, and LOCATION (given as a name only, without coordinates or distance data). Your goal is to suggest realistic food options that can typically be found or prepared in the given location, while strictly respecting user's dietary preference and restriction.
    
               OUTPUT FORMAT
               - Output MUST be a JSON array of FoodRecommendationItem (Generable schema).
               - No extra commentary, no markdown, no explanations—ONLY the JSON array.
    
-              CANDIDATE POLICY
-              - Do NOT invent restaurants or items not present in the candidates.
-              - Prioritize items with safety status STRICT_SAFE, then SAFE.
-              - Exclude anything marked uncertain when strict mode is ON.
-   
-              HEALTH & SAFETY RULES
-              - Exclude any item that violates allergies, religious rules, or hard dietary restrictions.
-              - Give preference to items matching dietary preferences and avoiding listed nutrients (e.g., low-sodium, no added sugar).
+              GENERATION CRITERIA
+              - Exclude any item that violates allergies, religious restrictions, or strict dietary rules.
+              - Prioritize foods that fit the user’s dietary preferences (e.g., vegetarian, halal, low-sodium, gluten-free).
+              - Prefer nutritionally balanced or locally available dishes that meet the user’s health preferences.
               - Never override or relax allergy or religion-related constraints.
-   
-              LOCATION RULES
-              - Only include items whose candidate distance_m is ≤ the user's maximum distance (in meters).
-              - Copy distanceMeters from candidate distance_m exactly.
+              - Generated list should reflect foods that are typical, distinctive, or culturally significant to the specified city (location).
+              - Prioritize locally unique or signature foods that are not easily found elsewhere.
+              - Avoid generic or globalized dishes unless no local options meet dietary rules.
    
               FIELD CONSTRAINTS (Generable)
-              - name: short, human-readable, 2–60 chars.
-              - locationName: short, human-readable.
-              - rating: copy from candidate (0.0–5.0).
-              - distanceMeters: copy candidate distance_m (meters).
-              - matchMessage: ONE concise sentence (≤140 chars), no emojis. Mention the key health or location reason when relevant.
+              - name: short, human-readable, 2–60 chars of the food name.
+              - matchMessage: ONE concise sentence (≤140 chars), no emojis. Mention the key health or reason when relevant.
               - tags: up to 5 concise tags; prefer existing candidate tags; add at most one new tag if essential.
    
               SELECTION & ORDERING
               - Return at most 5 items.
-              - Order by: (1) compliance with strict mode & health constraints, (2) higher rating, (3) nearer distance.
-   
-              VALIDATION
-              - If no candidate satisfies strict mode, return an empty array.
-              - Ensure every returned item is present in candidates and follows all constraints.
+              - Order by compliance with strict mode & health constraints
    """
     var languageModelSession: LanguageModelSession?
     @Published private(set) var aiRecommendations: [FoodRecommendationItem] = []
@@ -118,14 +106,12 @@ final class HomeViewModel: ObservableObject {
         let religious = preferences.religiousRules.map(\.rawValue).sorted().joined(separator: ", ")
         let avoidNutrients = preferences.nutrientsToAvoid.map(\.rawValue).sorted().joined(separator: ", ")
         
-        let candidates = candidateContext()
+        //let candidates = candidateContext()
         
         return Prompt {
               """
               USER CONTEXT
-              - Search text: "\(searchText)"
               - Selected cuisine: \(selectedCuisine.rawValue)
-              - Max distance (km): \(String(format: "%.1f", maxDistanceKm))
               - Dietary filter chips (selected): [\(dietarySelected)]
               - Preferences:
                 • Dietary: [\(dietPrefs)]
@@ -133,9 +119,6 @@ final class HomeViewModel: ObservableObject {
                 • Religious rules: [\(religious)]
                 • Nutrients to avoid: [\(avoidNutrients)]
               - Strict safe only: \(onlyStrictSafe ? "YES" : "NO")
-              
-              CANDIDATES (do not invent beyond these)
-              \(candidates)
               
               Produce only the JSON array of FoodRecommendationItem.
               
@@ -268,14 +251,14 @@ extension FoodRecommendationItem {
             .uniqued()
             .prefix(5)
         
-        let clampedRating = max(0.0, min(5.0, rating))
-        let clampedDistance = max(0.0, min(50_000.0, distanceMeters)) // meters
+//        let clampedRating = max(0.0, min(5.0, rating))
+//        let clampedDistance = max(0.0, min(50_000.0, distanceMeters)) // meters
         
         return FoodRecommendationItem(
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            locationName: locationName.trimmingCharacters(in: .whitespacesAndNewlines),
-            rating: clampedRating,
-            distanceMeters: clampedDistance,
+//            locationName: locationName.trimmingCharacters(in: .whitespacesAndNewlines),
+//            rating: clampedRating,
+//            distanceMeters: clampedDistance,
             matchMessage: matchMessage.trimmingCharacters(in: .whitespacesAndNewlines),
             tags: Array(cleanedTags)
         )

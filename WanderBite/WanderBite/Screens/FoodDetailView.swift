@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct FoodDetailView: View {
-    let item: FoodItem
-    let safety: SafetyStatus
+//    let item: FoodItem
+//    let safety: SafetyStatus
+    let item: FoodRecommendationItem
     
     var body: some View {
         ScrollView {
@@ -16,13 +17,14 @@ struct FoodDetailView: View {
                         .foregroundStyle(.teal)
                 }
                 
-                SafetyBadge(status: safety)
+                //SafetyBadge(status: safety)
                 
                 Text(item.name)
                     .font(.title2.bold())
-                Text(item.restaurant)
+                Text(item.matchMessage)
                     .font(.headline)
                     .foregroundStyle(.secondary)
+                Text(item.tags.joined(separator: ", "))
                 
                 Text("Placeholder for ingredients, allergen info, and navigation.")
                     .font(.footnote)
@@ -32,27 +34,27 @@ struct FoodDetailView: View {
         }
         .navigationTitle("Meal Details")
         .navigationBarTitleDisplayMode(.inline)
-        .accessibilityLabel("Details for \(item.name) at \(item.restaurant). Safety: \(safety.rawValue).")
+        //.accessibilityLabel("Details for \(item.name) at \(item.restaurant). Safety: \(safety.rawValue).")
     }
 }
 
-#Preview {
-    NavigationStack {
-        FoodDetailView(
-            item: FoodItem(
-                name: "Test Dish",
-                restaurant: "Test Place",
-                cuisine: .local,
-                distanceKm: 1.0,
-                rating: 4.5,
-                tags: [.glutenFree],
-                allergens: [],
-                religiousCompliance: [.halal],
-                nutrients: [],
-                description: "",
-                imageName: nil
-            ),
-            safety: .safe
-        )
-    }
-}
+//#Preview {
+//    NavigationStack {
+//        FoodDetailView(
+//            item: FoodItem(
+//                name: "Test Dish",
+//                restaurant: "Test Place",
+//                cuisine: .local,
+//                distanceKm: 1.0,
+//                rating: 4.5,
+//                tags: [.glutenFree],
+//                allergens: [],
+//                religiousCompliance: [.halal],
+//                nutrients: [],
+//                description: "",
+//                imageName: nil
+//            ),
+//            safety: .safe
+//        )
+//    }
+//}
