@@ -1,3 +1,10 @@
+//
+//  Enum.swift
+//  WanderBite
+//
+//  Created by Shafa Tiara Tsabita Himawan on 09/11/25.
+//
+
 import Foundation
 import SwiftUI
 
@@ -24,7 +31,8 @@ enum Allergen: String, CaseIterable, Codable, Identifiable {
 
 enum ReligiousRule: String, CaseIterable, Codable, Identifiable {
     case halal = "Halal"
-    case kosher = "Non-Halal"
+    case kosher = "Kosher"
+    case nonHalal = "Non-Halal"
     var id: String { rawValue }
 }
 

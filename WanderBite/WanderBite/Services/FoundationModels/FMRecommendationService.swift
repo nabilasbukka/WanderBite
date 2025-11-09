@@ -20,71 +20,86 @@ struct FMRecommendationService: RecommendationServiceProtocol {
         maxDistanceKm: Double,
         limit: Int
     ) -> [Recommendation] {
-        // 1) Filter out strict violations first (allergens, religious rules, distance, cuisine, search)
-        let base = items.filter { item in
-            guard preferences.allergies.isDisjoint(with: item.allergens) else { return false }
-            guard preferences.religiousRules.isSubset(of: item.religiousCompliance) else { return false }
+
+        // Map String arrays from UserPreferences -> typed sets (drop unknowns safely)
+        let prefAllergens: Set<Allergen> =
+            Set(preferences.allergies.compactMap(Allergen.init(rawValue:)))
+        let prefDiet: Set<DietaryTag> =
+            Set(preferences.dietaryPreferences.compactMap(DietaryTag.init(rawValue:)))
+        let prefReligious: Set<ReligiousRule> =
+            Set(preferences.religiousRules.compactMap(ReligiousRule.init(rawValue:)))
+
+        // 1) Strict filtering (allergens, religious rules, distance, cuisine, search)
+        let base: [FoodItem] = items.filter { item in
+            // Exclude anything containing user allergens
+            guard prefAllergens.isDisjoint(with: item.allergens) else { return false }
+            // Must respect religious rules selected (empty set means no constraint)
+            guard prefReligious.isSubset(of: item.religiousCompliance) else { return false }
+            // Distance
             guard item.distanceKm <= maxDistanceKm else { return false }
+            // Cuisine (All = wildcard)
             if cuisine != .all && item.cuisine != cuisine { return false }
+            // Search
             if !searchText.isEmpty {
                 let q = searchText.lowercased()
-                if !(item.name.lowercased().contains(q) || item.restaurant.lowercased().contains(q)) { return false }
+                let hit = item.name.lowercased().contains(q) || item.restaurant.lowercased().contains(q)
+                if !hit { return false }
             }
             return true
         }
 
-        // 2) Score items based on preference alignment and confidence
+        // 2) Score items by preference alignment & confidence
+        // tuple: (item, score, isNearMatch)
         let scored: [(FoodItem, Double, Bool)] = base.map { item in
-            let dietaryIntersection = preferences.dietaryPreferences.intersection(item.tags)
-            let matchesAllDietary = preferences.dietaryPreferences.isSubset(of: item.tags)
-            let avoidsNutrients = preferences.nutrientsToAvoid.isDisjoint(with: item.nutrients)
-            let uncertain = item.uncertainIngredients
+            // Diet alignment
+            let dietIntersect = prefDiet.intersection(item.tags)
+            let matchesAllDiet = prefDiet.isSubset(of: item.tags)
 
             var score: Double = 0
             // Preference alignment
-            score += Double(dietaryIntersection.count) * 2.0
-            if matchesAllDietary { score += 2.0 }
-            if avoidsNutrients { score += 1.2 }
-            // Confidence adjustments
-            if uncertain { score -= 1.5 }
-            // Utility features
+            score += Double(dietIntersect.count) * 2.0
+            if matchesAllDiet { score += 2.0 }
+            // Confidence: penalize uncertain ingredients
+            if item.uncertainIngredients { score -= 1.2 }
+            // Utility: rating & distance
             score += item.rating * 0.25
             score += max(0, (5.0 - item.distanceKm)) * 0.15
-            
-            // Near match if it doesn't meet all dietary prefs or has minor nutrient overlap (but still passed strict filter above)
-            let isNearMatch = !matchesAllDietary || !avoidsNutrients || uncertain
+
+            // Near match jika tidak memenuhi semua diet atau ada ketidakpastian
+            let isNearMatch = (!matchesAllDiet) || item.uncertainIngredients
             return (item, score, isNearMatch)
         }
 
-        // 3) Partition strict matches vs near matches
+        // 3) Pisahkan strict vs near
         let strictMatches = scored.filter { !$0.2 }
         let nearMatches = scored.filter { $0.2 }
 
-        // 4) Choose list: prefer strict; otherwise near matches
-        let chosenList: [(FoodItem, Double, Bool)]
+        // 4) Pilih list: prefer strict, jika kosong ambil near
+        let chosen: ArraySlice<(FoodItem, Double, Bool)>
         if strictMatches.isEmpty {
-            // No perfect matches, present near matches with clear note
-            chosenList = nearMatches.sorted { $0.1 > $1.1 }.prefix(limit).map { $0 }
+            chosen = nearMatches.sorted { $0.1 > $1.1 }.prefix(limit)
         } else {
-            chosenList = strictMatches.sorted { $0.1 > $1.1 }.prefix(limit).map { $0 }
+            chosen = strictMatches.sorted { $0.1 > $1.1 }.prefix(limit)
         }
 
-        // 5) Generate short, traveler-friendly reasons (1–2 sentences)
-        let recommendations: [Recommendation] = chosenList.map { (item, score, isNear) in
-            let dietaryTags = Array(item.tags).map { $0.rawValue }.joined(separator: ", ")
-            let religiousTags = Array(item.religiousCompliance).map { $0.rawValue }.joined(separator: ", ")
+        // 5) Build Recommendation + reason singkat
+        let recs: [Recommendation] = chosen.map { (item, score, isNear) in
+            let dietaryTags = item.tags.map(\.rawValue).sorted().joined(separator: ", ")
+            let religiousTags = item.religiousCompliance.map(\.rawValue).sorted().joined(separator: ", ")
             let distance = String(format: "%.1f", item.distanceKm)
             let rating = String(format: "%.1f", item.rating)
-            let baseReason: String
-            if isNear {
-                baseReason = "Near match: aligns with your preferences (\(religiousTags)). Rated \(rating) and \(distance) km away."
-            } else {
-                baseReason = "Matches your preferences (\(religiousTags); \(dietaryTags)). Rated \(rating) and \(distance) km away."
-            }
-            let reason = baseReason
+
+            let reason: String = {
+                if isNear {
+                    return "Near match: aligns with your preferences (\(religiousTags)). Rated \(rating) and \(distance) km away."
+                } else {
+                    return "Matches your preferences (\(religiousTags); \(dietaryTags)). Rated \(rating) and \(distance) km away."
+                }
+            }()
+
             return Recommendation(item: item, score: score, reason: reason, isNearMatch: isNear)
         }
 
-        return recommendations
+        return recs
     }
 }
