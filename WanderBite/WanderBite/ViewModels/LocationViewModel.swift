@@ -12,7 +12,7 @@ class CityLocationViewModel: NSObject, ObservableObject, CLLocationManagerDelega
     
     @Published var city: String = "…"
     private let locationManager = CLLocationManager()
-    private let fallbackCity = "Singapore"
+    private let fallbackCity = "Surabaya"
     private var didSetCity = false
     
     override init() {
